@@ -11,15 +11,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
-import org.joda.time.DateTimeZone
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Try
-import com.typesafe.config.ConfigFactory
 /**
-  * Created by suroot on 18/07/17.
+  * Created by suroot.
   */
 object IexTrading{
 
@@ -91,10 +87,10 @@ object IexTrading{
       (JsPath \ "calculationPrice").read[String] and
       (JsPath \ "open").read[Double] and
       (JsPath \ "openTime").read[Long] and
-        (JsPath \ "close").read[Double] and
-        (JsPath \ "closeTime").read[Long] and
-        (JsPath \ "high").read[Double] and
-       (JsPath \ "low").read[Double] and
+      (JsPath \ "close").read[Double] and
+      (JsPath \ "closeTime").read[Long] and
+      (JsPath \ "high").read[Double] and
+      (JsPath \ "low").read[Double] and
       (JsPath).read[IexQuote] and
       (JsPath).read[LatestQuote] and
       (JsPath).read[QuoteExtra]
@@ -233,7 +229,6 @@ case class IexTradingLast(symbols: Seq[String] = Seq.empty, interval: FiniteDura
 }
 
 
-
 class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, ex: ExecutionContext) extends PlayJsonSupport {
 
   object httpApi extends IexTradingHttp
@@ -256,13 +251,10 @@ class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, 
     httpApi.post[Questrade.PostBracket](s"accounts/${account}/orders/bracket", post).flatMap(x => unmarshal(x))
 */
 
-
   def last(implicit um: Reads[IexTrading.Last]) =
     new IexTradingWebSocket[IexTrading.Last]("wss://ws-api.iextrading.com/1.0/last")
 
   def tops(implicit um: Reads[IexTrading.Top]) =
     new IexTradingWebSocket[IexTrading.Top]("wss://ws-api.iextrading.com/1.0/tops")
-
-
 
 }

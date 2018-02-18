@@ -36,7 +36,6 @@ class IexTradingPoller(url: String, interval: FiniteDuration, fuzz: Double = 5.0
     Http().shutdownAllConnectionPools()
   }
 
-
   def dateToMarketOpenDateTime(dt: DateTime) =
     new DateTime(dt.getYear, dt.getMonthOfYear, dt.getDayOfMonth, 9, 30 ,DateTimeZone.forID("America/New_York")).toDateTimeISO
 

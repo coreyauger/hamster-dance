@@ -19,8 +19,6 @@ object Main extends App{
     implicit val system: ActorSystem = ActorSystem()
     implicit val materializer = ActorMaterializer(ActorMaterializerSettings(system).withSupervisionStrategy(decider))
 
-
-
     try {
       val api = new IexTradingApi()
       /*val news = Await.result(api.news("msft"), 5 seconds)
