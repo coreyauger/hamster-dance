@@ -36,18 +36,18 @@ object Main extends App{
 
       val batch =  Await.result(api.batch(Seq("msft","snap","goog")), 5 seconds)
       println(batch)
-
-      val quoter = IexTradingQuoter(Seq("msft","snap","goog"), 1 minute)
+*/
+      val quoter = IexTradingLast()
       quoter.json.runForeach{ xs =>
          xs.foreach{ ys =>
            println(s"Got Values: ${ys}")
          }
       }
-*/
-      val last = api.last
+
+      /*val last = api.last
       last.subscribe[IexTrading.Last]{ x =>
         println(s"Last: ${x}")
-      }
+      }*/
 
       Thread.currentThread.join()
 

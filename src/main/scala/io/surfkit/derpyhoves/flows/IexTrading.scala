@@ -212,6 +212,7 @@ object IexTrading{
                 ) extends Iex
   implicit val topWrites = Json.writes[Top]
   implicit val topReads = Json.reads[Top]
+
 }
 
 class IexTradingTicker[T <: IexTrading.Iex](endpoint: String, interval: FiniteDuration)(implicit system: ActorSystem, materializer: Materializer, um: Reads[T]) extends IexTradingPoller(url = endpoint, interval = interval) with PlayJsonSupport{
@@ -223,6 +224,14 @@ class IexTradingTicker[T <: IexTrading.Iex](endpoint: String, interval: FiniteDu
 
 case class IexTradingQuoter(symbols: Seq[String], interval: FiniteDuration = 1 minute)(implicit system: ActorSystem, materializer: Materializer)
   extends IexTradingTicker[IexTrading.BatchResponse](s"stock/market/batch${symbols.mkString("?symbols=",",","")}&types=quote", interval)
+
+case class IexTradingLast(symbols: Seq[String] = Seq.empty, interval: FiniteDuration = 10 seconds)(implicit system: ActorSystem, materializer: Materializer, um: Reads[Seq[IexTrading.Last]]) extends IexTradingPoller(url = s"tops/last${if(symbols.isEmpty) "" else symbols.mkString("?symbols=",",","")}", interval = interval) with PlayJsonSupport {
+  def json(): Source[Future[Seq[IexTrading.Last]], Cancellable] = super.apply().map {
+    case scala.util.Success(response) => Unmarshal(response.entity).to[Seq[IexTrading.Last]]
+    case scala.util.Failure(ex) => Future.failed(ex)
+  }
+}
+
 
 
 class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, ex: ExecutionContext) extends PlayJsonSupport {
@@ -249,10 +258,10 @@ class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, 
 
 
   def last(implicit um: Reads[IexTrading.Last]) =
-    new IexTradingWebSocket[IexTrading.Last]("https://ws-api.iextrading.com/1.0/last")
+    new IexTradingWebSocket[IexTrading.Last]("wss://ws-api.iextrading.com/1.0/last")
 
   def tops(implicit um: Reads[IexTrading.Top]) =
-    new IexTradingWebSocket[IexTrading.Top]("https://ws-api.iextrading.com/1.0/tops")
+    new IexTradingWebSocket[IexTrading.Top]("wss://ws-api.iextrading.com/1.0/tops")
 
 
 
