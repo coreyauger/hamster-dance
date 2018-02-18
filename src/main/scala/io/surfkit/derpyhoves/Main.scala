@@ -18,33 +18,12 @@ object Main extends App{
     }
     implicit val system: ActorSystem = ActorSystem()
     implicit val materializer = ActorMaterializer(ActorMaterializerSettings(system).withSupervisionStrategy(decider))
-/*
 
-    import scala.concurrent.duration._
-    val request: _root_.akka.http.scaladsl.model.HttpRequest = RequestBuilding.Get(Uri("https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=MSFT&interval=1min&apikey=PMGX9ASKF5L4PW7E"))
-    val source: Source[HttpRequest, Cancellable] = Source.tick(0.seconds, 20.seconds, request)
-    val sourceWithDest: Source[Try[HttpResponse], Cancellable] =
-      source.map(req ⇒ (req, NotUsed)).via(Http().superPool[NotUsed]()).map(_._1)
-
-    sourceWithDest.runForeach(i => println(i))(materializer)*/
-
-    //val msft = AlphaVantageTimeSeries("MSFT", AlphaVantage.Interval.`1min`)
-    //msft.json.runForeach(i => i.foreach(x => x.foreach(println) ) )(materializer)
-   /* try {
-      val fx = AlphaVantage.FullTimeSeries.get("MSFT", AlphaVantage.Interval.daily)
-      fx.foreach { x =>
-        println(s"GOT IT: ${x.`Time Series`.series.length}")
-      }
-      Thread.currentThread.join()
-    }catch{
-      case t:Throwable =>
-        t.printStackTrace()
-    }*/
 
 
     try {
       val api = new IexTradingApi()
-      val news = Await.result(api.news("msft"), 5 seconds)
+      /*val news = Await.result(api.news("msft"), 5 seconds)
       println(s"MSFT news: ${news}")
 
       val quote = Await.result(api.quote("msft"), 5 seconds)
@@ -58,31 +37,19 @@ object Main extends App{
       val batch =  Await.result(api.batch(Seq("msft","snap","goog")), 5 seconds)
       println(batch)
 
-      val quoter = IexTradingQuoter(Seq("msft","snap","goog"), 5 seconds)
+      val quoter = IexTradingQuoter(Seq("msft","snap","goog"), 1 minute)
       quoter.json.runForeach{ xs =>
          xs.foreach{ ys =>
            println(s"Got Values: ${ys}")
          }
       }
-      Thread.currentThread.join()
-
-      /*println("calling EMA")
-      val fx = AlphaVantage.AlphaVantageEMA.get("MSFT", AlphaVantage.Interval.`1min`, 60)
-      fx.foreach { x =>
-        println(s"GOT IT: ")
-      }*/
-      /*println("calling MACD")
-      val fx2 = AlphaVantage.AlphaVantageMACD.get("MSFT", AlphaVantage.Interval.`1min`)
-      fx2.foreach { x =>
-        println(s"GOT IT: ${x}")
-      }*/
-
-      /*println("calling STOCHF")
-      val fx3 = AlphaVantage.AlphaVantageStochasticFast.get("MSFT", AlphaVantage.Interval.`1min`, 10, 3)
-      fx3.foreach { x =>
-        println(s"GOT IT: ${x}")
+*/
+      val last = api.last
+      last.subscribe[IexTrading.Last]{ x =>
+        println(s"Last: ${x}")
       }
-      Thread.currentThread.join()*/
+
+      Thread.currentThread.join()
 
       /*val json =
         """
@@ -97,68 +64,6 @@ object Main extends App{
       case t:Throwable =>
         t.printStackTrace()
     }
-
-
-
-   /* val json =
-      """
-        |{
-        |     "Meta Data": {
-        |         "1. Information": "Intraday (1min) prices and volumes",
-        |         "2. Symbol": "MSFT",
-        |         "3. Last Refreshed": "2017-07-18 16:00:00",
-        |         "4. Interval": "1min",
-        |         "5. Output Size": "Compact",
-        |         "6. Time Zone": "US/Eastern"
-        |     },
-        |     "Time Series (1min)": {
-        |         "2017-07-18 16:00:00": {
-        |             "1. open": "73.2200",
-        |             "2. high": "73.3000",
-        |             "3. low": "73.2100",
-        |             "4. close": "73.3000",
-        |             "5. volume": "3010033"
-        |         },
-        |         "2017-07-18 15:59:00": {
-        |             "1. open": "73.1600",
-        |             "2. high": "73.2200",
-        |             "3. low": "73.1500",
-        |             "4. close": "73.2200",
-        |             "5. volume": "255033"
-        |         },
-        |         "2017-07-18 15:58:00": {
-        |             "1. open": "73.1250",
-        |             "2. high": "73.1600",
-        |             "3. low": "73.1200",
-        |             "4. close": "73.1500",
-        |             "5. volume": "197744"
-        |         },
-        |         "2017-07-18 15:57:00": {
-        |             "1. open": "73.1250",
-        |             "2. high": "73.1300",
-        |             "3. low": "73.1200",
-        |             "4. close": "73.1250",
-        |             "5. volume": "115770"
-        |         },
-        |         "2017-07-18 15:56:00": {
-        |             "1. open": "73.1200",
-        |             "2. high": "73.1300",
-        |             "3. low": "73.1200",
-        |             "4. close": "73.1300",
-        |             "5. volume": "68468"
-        |         }
-        |     }
-        |}
-      """.stripMargin
-    import AlphaVantage._
-    try {
-      println(Json.parse(json).as[TimeSeriesResponse])
-    }catch{
-      case t: Throwable =>
-        println(t.getMessage)
-        t.printStackTrace()
-    }*/
-
   }
 
 }
