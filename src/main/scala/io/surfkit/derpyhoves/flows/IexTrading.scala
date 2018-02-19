@@ -14,6 +14,7 @@ import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import io.socket.client.IO
 /**
   * Created by suroot.
   */
@@ -230,6 +231,9 @@ case class IexTradingLast(symbols: Seq[String] = Seq.empty, interval: FiniteDura
 
 
 class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, ex: ExecutionContext) extends PlayJsonSupport {
+  import io.socket.client._
+  import io.socket.emitter.Emitter
+  import io.socket.emitter.Emitter._
 
   object httpApi extends IexTradingHttp
 
@@ -251,10 +255,57 @@ class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, 
     httpApi.post[Questrade.PostBracket](s"accounts/${account}/orders/bracket", post).flatMap(x => unmarshal(x))
 */
 
-  def last(implicit um: Reads[IexTrading.Last]) =
-    new IexTradingWebSocket[IexTrading.Last]("wss://ws-api.iextrading.com/1.0/last")
+  private[this] def socketIO(endpoint: String) = {
+    // set as an option
+    val opts = new IO.Options()
+    opts.forceNew = true
+    opts.reconnection = true
+    val sockat = IO.socket(endpoint, opts)
+    sockat.on(Socket.EVENT_ERROR, em{ args =>
+      //socket.emit("foo", "hi");
+      println("EVENT_ERROR")
+      args.foreach(println)
+    }).on(Socket.EVENT_DISCONNECT , em{ args =>
+      println("EVENT_DISCONNECT")
+      args.foreach(println)
+    })
+    sockat
+  }
 
-  def tops(implicit um: Reads[IexTrading.Top]) =
-    new IexTradingWebSocket[IexTrading.Top]("wss://ws-api.iextrading.com/1.0/tops")
+  def em( f:(Object*) => Unit ) =  new Emitter.Listener() {
+    @Override
+    def call(args: Object*) = f(args)
+  }
+
+  def last( f:(IexTrading.Last) => Unit ) = {
+    val  socket = socketIO("https://ws-api.iextrading.com/1.0/last")
+    socket.on(Socket.EVENT_CONNECT, em{ args =>
+      //socket.emit("foo", "hi");
+      println("connect last..")
+      args.foreach(println)
+      //socket.emit("subscribe", "firehose")
+      println("subscribe")
+    }).on(Socket.EVENT_MESSAGE , em{ args =>
+      println("event")
+      args.foreach(println)
+    })
+    socket.connect()
+  }
+    //new IexTradingWebSocket[IexTrading.Last]("wss://ws-api.iextrading.com/1.0/last")
+
+  def tops( f:(IexTrading.Top) => Unit ) = {
+    val  socket = socketIO("https://ws-api.iextrading.com/1.0/tops")
+    socket.on(Socket.EVENT_CONNECT, em{ args =>
+      //socket.emit("foo", "hi");
+      println("connect tops..")
+      args.foreach(println)
+      //socket.emit("subscribe", "firehose")
+      println("subscribe")
+    }).on(Socket.EVENT_MESSAGE , em{ args =>
+      println("event")
+      args.foreach(println)
+    })
+    socket.connect()
+  }
 
 }
