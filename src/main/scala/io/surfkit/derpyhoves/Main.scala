@@ -42,14 +42,21 @@ object Main extends App{
          }
       }*/
 
-      api.last{ x: IexTrading.Last =>
+      val candles = IexTrading1MinCandles(Set("msft","snap","goog","fb"))
+      candles.json.runForeach{ xs =>
+        xs.foreach{ ys =>
+          println(s"Got Candle Values: ${ys}")
+        }
+      }
+
+      /*api.last{ x: IexTrading.Last =>
         println(s"Last: ${x}")
       }
 
       api.tops{ x: IexTrading.Top =>
         println(s"Top: ${x}")
 
-      }
+      }*/
 
 
      /* val tops = api.tops

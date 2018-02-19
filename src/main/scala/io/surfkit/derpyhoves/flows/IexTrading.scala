@@ -1,6 +1,7 @@
 package io.surfkit.derpyhoves.flows
 
 import akka.actor.{ActorSystem, Cancellable}
+
 import scala.concurrent.ExecutionContext
 import play.api.libs.json._
 import akka.http.scaladsl.unmarshalling.Unmarshal
@@ -11,10 +12,13 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import de.heikoseeberger.akkahttpplayjson.PlayJsonSupport
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import io.socket.client.IO
+import io.surfkit.derpyhoves.utils.MarketUtils
+import org.joda.time.Minutes
 /**
   * Created by suroot.
   */
@@ -212,22 +216,27 @@ object IexTrading{
 
 }
 
-class IexTradingTicker[T <: IexTrading.Iex](endpoint: String, interval: FiniteDuration)(implicit system: ActorSystem, materializer: Materializer, um: Reads[T]) extends IexTradingPoller(url = endpoint, interval = interval) with PlayJsonSupport{
+class IexTradingTicker[T <: IexTrading.Iex](endpoint: String, interval: FiniteDuration, fuzz: Int = 5, parameters: Option[() => String] = None)(implicit system: ActorSystem, materializer: Materializer, um: Reads[T]) extends IexTradingPoller(url = endpoint, interval = interval, fuzz = fuzz, parameters= parameters) with PlayJsonSupport{
   def json(): Source[Future[T], Cancellable] = super.apply().map{
     case scala.util.Success(response) => Unmarshal(response.entity).to[T]
     case scala.util.Failure(ex) => Future.failed(ex)
   }
 }
 
-case class IexTradingQuoter(symbols: Seq[String], interval: FiniteDuration = 1 minute)(implicit system: ActorSystem, materializer: Materializer)
+case class IexTradingQuoter(symbols: Set[String], interval: FiniteDuration = 1 minute)(implicit system: ActorSystem, materializer: Materializer)
   extends IexTradingTicker[IexTrading.BatchResponse](s"stock/market/batch${symbols.mkString("?symbols=",",","")}&types=quote", interval)
 
-case class IexTradingLast(symbols: Seq[String] = Seq.empty, interval: FiniteDuration = 10 seconds)(implicit system: ActorSystem, materializer: Materializer, um: Reads[Seq[IexTrading.Last]]) extends IexTradingPoller(url = s"tops/last${if(symbols.isEmpty) "" else symbols.mkString("?symbols=",",","")}", interval = interval) with PlayJsonSupport {
+case class IexTradingLast(symbols: Set[String] = Set.empty[String], interval: FiniteDuration = 10 seconds)(implicit system: ActorSystem, materializer: Materializer, um: Reads[Seq[IexTrading.Last]]) extends IexTradingPoller(url = s"tops/last${if(symbols.isEmpty) "" else symbols.mkString("?symbols=",",","")}", interval = interval) with PlayJsonSupport {
   def json(): Source[Future[Seq[IexTrading.Last]], Cancellable] = super.apply().map {
     case scala.util.Success(response) => Unmarshal(response.entity).to[Seq[IexTrading.Last]]
     case scala.util.Failure(ex) => Future.failed(ex)
   }
 }
+
+case class IexTrading1MinCandles(symbols: Set[String])(implicit system: ActorSystem, materializer: Materializer)
+  extends IexTradingTicker[IexTrading.BatchResponse](s"stock/market/batch", 1 minute, 4, Some( () => {
+    s"${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes}"
+  } ))
 
 
 class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, ex: ExecutionContext) extends PlayJsonSupport {
@@ -248,12 +257,26 @@ class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, 
   def chart(symbol: String)(implicit um: Reads[Seq[IexTrading.Ts1Min]]) =
     httpApi.get(s"stock/${symbol}/chart/1d").flatMap(x => Unmarshal(x.entity).to[Seq[IexTrading.Ts1Min]] )
 
-  def batch(symbols: Seq[String], types: Set[String] = Set("quote","chart"))(implicit um: Reads[IexTrading.BatchResponse]) =
+  def batch(symbols: Set[String], types: Set[String] = Set("quote","chart"))(implicit um: Reads[IexTrading.BatchResponse]) =
     httpApi.get(s"stock/market/batch${symbols.mkString("?symbols=",",","")}${types.mkString("&types=",",","")}&range=1d").flatMap(x => unmarshal(x) )
+
+  def lastMinuteCharts(symbols: Set[String])(implicit um: Reads[IexTrading.BatchResponse]) =
+    httpApi.get(s"stock/market/batch${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes}").flatMap(x => unmarshal(x) )
 /*
   def bracket(account: String, post: Questrade.PostBracket)(implicit um: Reads[Questrade.OrderResponse],uw1: Writes[Questrade.BracketOrder]) =
     httpApi.post[Questrade.PostBracket](s"accounts/${account}/orders/bracket", post).flatMap(x => unmarshal(x))
 */
+
+
+  // NOTE: WebSocket support is limited at this time to Node.js server clients and socket.io browser clients. We use socket.io for our WebSocket server. The WebSocket examples in our documentation assume a socket.io browser client is being used. We’re planning to rewrite our WebSocket server for broader support.
+  // https://iextrading.com/developer/docs/#websockets
+  // they also list this: WebSockets server rewrite (in progress)
+
+  // These will be better to use when they are done the rewrite
+  /*def last(implicit um: Reads[Seq[IexTrading.Last]]) =
+    new IexTradingWebSocket[IexTrading.Last]("wss://ws-api.iextrading.com/1.0/last")
+  def tops(implicit um: Reads[Seq[IexTrading.Top]]) =
+    new IexTradingWebSocket[IexTrading.Top]("wss://ws-api.iextrading.com/1.0/tops")*/
 
   private[this] def socketIO(endpoint: String) = {
     // set as an option
