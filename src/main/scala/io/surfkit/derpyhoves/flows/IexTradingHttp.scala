@@ -26,13 +26,13 @@ class IexTradingPoller(url: String, interval: FiniteDuration, fuzz: Double = 5.0
     RequestBuilding.Get(Uri(endpoint))
   }
   val initialDelay = (60.0-DateTime.now.getSecondOfMinute.toDouble) + (Math.random() * fuzz + 1)    // set to the end of the minute plus some fuzzy
-  val source: Source[HttpRequest, Cancellable] = Source.tick(initialDelay.seconds, interval, request).filter{ _ =>
+  val source: Source[() => HttpRequest, Cancellable] = Source.tick(initialDelay.seconds, interval, request _).filter{ _ =>
     val now = DateTime.now()
     val endpoint = baseUrl+url+parameters.map(_()).getOrElse("")
     println(s"tick: ${endpoint}")
     now.isAfter(MarketUtils.dateToMarketOpenDateTime(now)) && now.isBefore(MarketUtils.dateToMarketCloseDateTime(now)) && now.getDayOfWeek() >= org.joda.time.DateTimeConstants.MONDAY && now.getDayOfWeek() <= org.joda.time.DateTimeConstants.FRIDAY
   }
-  val sourceWithDest: Source[Try[HttpResponse], Cancellable] = source.map(req ⇒ (req, NotUsed)).via(Http().superPool[NotUsed]()).map(_._1)
+  val sourceWithDest: Source[Try[HttpResponse], Cancellable] = source.map(req ⇒ (req(), NotUsed)).via(Http().superPool[NotUsed]()).map(_._1)
 
   def apply(): Source[Try[HttpResponse], Cancellable] = sourceWithDest
 

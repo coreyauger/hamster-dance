@@ -235,7 +235,7 @@ case class IexTradingLast(symbols: Set[String] = Set.empty[String], interval: Fi
 
 case class IexTrading1MinCandles(symbols: Set[String])(implicit system: ActorSystem, materializer: Materializer)
   extends IexTradingTicker[IexTrading.BatchResponse](s"stock/market/batch", 1 minute, 4, Some( () => {
-    s"${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes}"
+    s"${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes-1}"
   } ))
 
 
@@ -261,7 +261,7 @@ class IexTradingApi()(implicit system: ActorSystem, materializer: Materializer, 
     httpApi.get(s"stock/market/batch${symbols.mkString("?symbols=",",","")}${types.mkString("&types=",",","")}&range=1d").flatMap(x => unmarshal(x) )
 
   def lastMinuteCharts(symbols: Set[String])(implicit um: Reads[IexTrading.BatchResponse]) =
-    httpApi.get(s"stock/market/batch${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes}").flatMap(x => unmarshal(x) )
+    httpApi.get(s"stock/market/batch${symbols.mkString("?symbols=",",","")}&types=chart&range=1d&chartInterval=${Minutes.minutesBetween( MarketUtils.dateToMarketOpenDateTime(org.joda.time.DateTime.now), org.joda.time.DateTime.now).getMinutes -1}").flatMap(x => unmarshal(x) )
 /*
   def bracket(account: String, post: Questrade.PostBracket)(implicit um: Reads[Questrade.OrderResponse],uw1: Writes[Questrade.BracketOrder]) =
     httpApi.post[Questrade.PostBracket](s"accounts/${account}/orders/bracket", post).flatMap(x => unmarshal(x))
